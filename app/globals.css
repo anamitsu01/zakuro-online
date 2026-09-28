@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0c0708;
+  --foreground: #efe9e1;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  /* ザクロ: pomegranate / blood red accent */
+  --color-zakuro: #c0172f;
+  --color-zakuro-light: #e0334c;
+  --color-zakuro-deep: #5c0c17;
+  --color-bone: #efe9e1;
+  --color-panel: #170d0f;
+  --color-brass: #c9a44c;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background:
+    radial-gradient(ellipse at top, rgba(120, 12, 28, 0.22), transparent 60%),
+    var(--background);
+  background-attachment: fixed;
+  color: var(--foreground);
+}
+
+.font-mincho {
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif;
+}
