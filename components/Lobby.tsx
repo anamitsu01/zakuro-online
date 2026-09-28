@@ -3,7 +3,6 @@
 import { useState } from "react";
 import type { RoomSettings, RoomState } from "@/lib/types";
 import { MAX_PLAYERS, MIN_PLAYERS } from "@/lib/types";
-import PlayerTag from "./PlayerTag";
 import RulesPanel from "./RulesPanel";
 
 export default function Lobby({
@@ -63,7 +62,10 @@ export default function Lobby({
             key={p.id}
             className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-3"
           >
-            <PlayerTag player={p} />
+            <span className="truncate">
+              {p.name}
+              {p.isHost && <span className="ml-1 text-xs text-white/40">(ホスト)</span>}
+            </span>
             {p.id === viewerId && <span className="text-sm text-white/40">(あなた)</span>}
           </li>
         ))}

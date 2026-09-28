@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { BONUS_BY_ID, describeBonus, ITEM_LABEL, ITEM_ORDER, ROLE_BY_ID } from "@/lib/content";
+import { useMemo, useState } from "react";
+import { BONUS_BY_ID, describeBonus, ITEM_ORDER, ROLE_BY_ID } from "@/lib/content";
 import type { ClientToServerEvents } from "@/lib/socketEvents";
 import type { Item, Player, PublicEvent, RoomState } from "@/lib/types";
 import { exchangeAllowed, takeCountForSet, TOTAL_SETS } from "@/lib/types";
-import { CompositionRow, ItemChip, ItemIcon } from "./ItemIcon";
-import PlayerTag from "./PlayerTag";
+import { BagArt, CompositionRow, ItemArt, ItemCard, ItemChip } from "./ItemIcon";
 import RulesPanel from "./RulesPanel";
 
 export type Act = <E extends keyof ClientToServerEvents>(
@@ -32,18 +31,21 @@ function seatName(room: RoomState, seat: number): string {
   return p ? `${seat}番 ${p.name}` : `${seat}番`;
 }
 
+function currentActorId(room: RoomState): string | undefined {
+  return room.phase === "designate" || room.phase === "economy" || room.phase === "combat"
+    ? room.order[room.turnIndex]
+    : undefined;
+}
+
 export default function Board({ room, viewerId, act }: { room: RoomState; viewerId: string; act: Act }) {
   const me = room.players.find((p) => p.id === viewerId)!;
+  const [busy, setBusy] = useState(false);
   // Errors are tied to the turn they happened on, so they vanish once the game moves on.
   const turnKey = `${room.phase}-${room.set}-${room.turnIndex}`;
   const [errorState, setErrorState] = useState<{ key: string; message: string | null }>({ key: "", message: null });
   const error = errorState.key === turnKey ? errorState.message : null;
-  const [busy, setBusy] = useState(false);
   const seesAll = room.phase === "gameover" || (!me.alive && room.settings.deadCanSeeAll);
-  const actorId =
-    room.phase === "designate" || room.phase === "economy" || room.phase === "combat"
-      ? room.order[room.turnIndex]
-      : undefined;
+  const actorId = currentActorId(room);
   const actor = room.players.find((p) => p.id === actorId);
 
   async function run(p: Promise<string | null>) {
@@ -61,35 +63,40 @@ export default function Board({ room, viewerId, act }: { room: RoomState; viewer
         : undefined;
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
-        <SetHeader room={room} />
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <main className="flex min-w-0 flex-col gap-4">
+        <IdentityCards me={me} />
 
-        <section className="rounded-xl border border-zakuro-deep/60 bg-panel/90 p-4 sm:p-5">
-          {room.phase === "designate" && <DesignatePanel room={room} me={me} busy={busy} onPick={(seat) => run(act("game:designate", { seat }))} />}
-          {room.phase === "economy" && (
-            <EconomyPanel
-              key={`${room.set}-${room.turnIndex}`}
-              room={room}
-              me={me}
-              actor={actor}
-              busy={busy}
-              seesAll={seesAll}
-              onSubmit={(takeIds, returnId) => run(act("game:take", { takeIds, returnId }))}
-            />
-          )}
-          {room.phase === "intel" && (
-            <IntelPanel room={room} me={me} busy={busy} onPick={(targetSeat) => run(act("game:intel", { targetSeat }))} />
-          )}
-          {room.phase === "combat" && (
-            <CombatPanel room={room} me={me} actor={actor} busy={busy} onShoot={(targetSeat) => run(act("game:shoot", { targetSeat }))} />
-          )}
-          {room.phase === "gameover" && (
-            <GameOverPanel room={room} me={me} busy={busy} onPlayAgain={() => run(act("game:playAgain", {}))} />
-          )}
-          {error && <p className="mt-3 text-sm text-zakuro-light">{error}</p>}
+        <section className="flex min-h-[20rem] flex-col rounded-2xl border border-zakuro-deep/70 bg-panel/90 p-4 sm:p-6">
+          <StageHeader room={room} />
+          <div className="flex flex-1 flex-col justify-center">
+            {room.phase === "designate" && (
+              <DesignateStage room={room} me={me} busy={busy} onPick={(seat) => run(act("game:designate", { seat }))} />
+            )}
+            {room.phase === "economy" && (
+              <EconomyStage
+                key={`${room.set}-${room.turnIndex}`}
+                room={room}
+                me={me}
+                actor={actor}
+                busy={busy}
+                seesAll={seesAll}
+                onSubmit={(takeIds, returnId) => run(act("game:take", { takeIds, returnId }))}
+              />
+            )}
+            {room.phase === "intel" && (
+              <IntelStage room={room} me={me} busy={busy} onPick={(targetSeat) => run(act("game:intel", { targetSeat }))} />
+            )}
+            {room.phase === "combat" && (
+              <CombatStage room={room} me={me} actor={actor} busy={busy} onShoot={(targetSeat) => run(act("game:shoot", { targetSeat }))} />
+            )}
+            {room.phase === "gameover" && (
+              <GameOverStage room={room} me={me} busy={busy} onPlayAgain={() => run(act("game:playAgain", {}))} />
+            )}
+          </div>
+          {error && <p className="mt-3 text-center text-sm text-zakuro-light">{error}</p>}
           {me.isHost && stuckPlayer && room.phase !== "gameover" && (
-            <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm text-white/60">
+            <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-center text-sm text-white/60">
               {stuckPlayer.seat}番 {stuckPlayer.name} が切断中です。
               <button
                 disabled={busy}
@@ -102,12 +109,12 @@ export default function Board({ room, viewerId, act }: { room: RoomState; viewer
           )}
         </section>
 
-        {room.phase !== "gameover" && <MyDossier room={room} me={me} />}
-      </div>
+        {room.phase !== "gameover" && <HandCard me={me} />}
+      </main>
 
-      <aside className="flex w-full flex-col gap-4 lg:w-80">
-        <PlayerList room={room} me={me} actorId={actorId} seesAll={seesAll} />
-        <EventLog room={room} />
+      <aside className="flex flex-col gap-4">
+        <PlayerCards room={room} me={me} actorId={actorId} seesAll={seesAll} />
+        <RecentLog room={room} />
         <RulesPanel />
       </aside>
     </div>
@@ -115,119 +122,151 @@ export default function Board({ room, viewerId, act }: { room: RoomState; viewer
 }
 
 // ---------------------------------------------------------------------------
+// Top: who you are
 
-function SetHeader({ room }: { room: RoomState }) {
+function IdentityCards({ me }: { me: Player }) {
+  const role = me.role ? ROLE_BY_ID[me.role] : null;
+  const bonus = me.bonus ? BONUS_BY_ID[me.bonus.id] : null;
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <div className="flex gap-1.5">
+    <div className="grid grid-cols-[5rem_minmax(0,1fr)] gap-2 sm:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)] sm:gap-3">
+      <div className="relative flex flex-col items-center justify-center rounded-xl border border-white/10 bg-panel/90 p-2">
+        <span className="text-[11px] text-white/45">継承順位</span>
+        <span className="font-mincho text-4xl font-black leading-none text-bone">{me.seat}</span>
+        {!me.alive && (
+          <span className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/70 font-mincho text-xl font-bold text-zakuro-light">
+            死亡
+          </span>
+        )}
+      </div>
+      <div className="rounded-xl border border-white/10 bg-panel/90 p-3">
+        <p className="text-[11px] text-white/45">役職(全員に公開)</p>
+        <p className="font-mincho text-lg font-bold text-bone">{role?.name}</p>
+        <p className="text-xs text-white/60">{role?.description}</p>
+      </div>
+      {bonus && me.bonus && (
+        <div className="col-span-2 rounded-xl border border-brass/50 bg-brass/[0.06] p-3 sm:col-span-1">
+          <p className="text-[11px] text-brass/90">秘密ボーナス(あなただけが知っている・達成で宝石+1)</p>
+          <p className="font-mincho text-lg font-bold text-bone">《{bonus.name}》</p>
+          <p className="text-xs text-white/70">{describeBonus(me.bonus)}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Center: what's happening now
+
+function StageHeader({ room }: { room: RoomState }) {
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm">
+      <div className="flex gap-1">
         {Array.from({ length: TOTAL_SETS }, (_, i) => i + 1).map((s) => (
           <span
             key={s}
-            className={`h-2.5 w-8 rounded-full ${s < room.set ? "bg-zakuro-deep" : s === room.set ? "bg-zakuro" : "bg-white/10"}`}
+            className={`h-2 w-6 rounded-full ${s < room.set ? "bg-zakuro-deep" : s === room.set ? "bg-zakuro" : "bg-white/10"}`}
           />
         ))}
       </div>
-      <span className="font-mincho text-xl font-bold">
-        {room.phase === "gameover" ? "決着" : `第${room.set}セット`}
-      </span>
-      {room.phase !== "gameover" && (
-        <span className="rounded-full bg-zakuro/20 px-3 py-0.5 text-sm text-zakuro-light">{PHASE_LABEL[room.phase]}</span>
-      )}
-      {room.composition && room.phase !== "gameover" && room.phase !== "designate" && (
-        <span className="text-sm text-white/50">スタート: {seatName(room, room.startSeat)}</span>
-      )}
+      <span className="font-mincho font-bold">{room.phase === "gameover" ? "決着" : `第${room.set}セット`}</span>
+      {room.phase !== "gameover" && <span className="text-zakuro-light">{PHASE_LABEL[room.phase]}</span>}
     </div>
   );
 }
 
-function TurnOrder({ room, actorId }: { room: RoomState; actorId?: string }) {
+function Headline({ children, sub }: { children: React.ReactNode; sub?: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-1 text-sm">
-      {room.order.map((id, i) => {
-        const p = room.players.find((pl) => pl.id === id)!;
-        const done = i < room.turnIndex;
-        const current = id === actorId;
-        return (
-          <span key={id} className="inline-flex items-center gap-1">
-            {i > 0 && <span className="text-white/25">→</span>}
-            <span
-              className={`rounded-md px-2 py-0.5 ${
-                current ? "bg-zakuro text-white" : done || !p.alive ? "text-white/30" : "bg-white/5 text-white/70"
-              } ${p.alive ? "" : "line-through"}`}
-            >
-              {p.seat}番 {p.name}
-            </span>
-          </span>
-        );
-      })}
+    <div className="text-center">
+      <p className="font-mincho text-xl font-bold text-bone sm:text-2xl">{children}</p>
+      {sub && <p className="mt-1 text-sm text-white/55">{sub}</p>}
     </div>
   );
 }
 
-function Waiting({ children }: { children: React.ReactNode }) {
-  return <p className="animate-pulse py-2 text-white/60">{children}</p>;
+function PrimaryButton({ children, disabled, onClick }: { children: React.ReactNode; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className="rounded-full bg-zakuro px-7 py-3 font-bold text-white hover:bg-zakuro-light disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      {children}
+    </button>
+  );
 }
 
-function SeatButtons({
+function SecondaryButton({ children, disabled, onClick }: { children: React.ReactNode; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className="rounded-full border border-white/20 px-6 py-2.5 hover:bg-white/10 disabled:opacity-40"
+    >
+      {children}
+    </button>
+  );
+}
+
+function SeatGrid({
   players,
   busy,
   onPick,
-  label,
+  sub,
   danger,
 }: {
   players: Player[];
   busy: boolean;
   onPick: (seat: number) => void;
-  label: (p: Player) => string;
+  sub?: (p: Player) => string;
   danger?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div className="mx-auto grid w-full max-w-xl grid-cols-2 gap-2 sm:grid-cols-3">
       {players.map((p) => (
         <button
           key={p.id}
           disabled={busy}
           onClick={() => onPick(p.seat)}
-          className={`rounded-lg border px-3 py-2.5 text-left font-semibold disabled:opacity-40 ${
-            danger
-              ? "border-zakuro/50 bg-zakuro/15 hover:bg-zakuro/35"
-              : "border-white/15 bg-white/5 hover:bg-white/10"
+          className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left disabled:opacity-40 ${
+            danger ? "border-zakuro/50 bg-zakuro/10 hover:bg-zakuro/30" : "border-white/15 bg-white/5 hover:bg-white/10"
           }`}
         >
-          {label(p)}
+          <span className="font-mincho text-2xl font-black text-bone">{p.seat}</span>
+          <span className="min-w-0">
+            <span className="block truncate font-semibold">{p.name}</span>
+            <span className="block truncate text-xs text-white/50">{sub ? sub(p) : ROLE_BY_ID[p.role!].name}</span>
+          </span>
         </button>
       ))}
     </div>
   );
 }
 
-function DesignatePanel({ room, me, busy, onPick }: { room: RoomState; me: Player; busy: boolean; onPick: (seat: number) => void }) {
+function DesignateStage({ room, me, busy, onPick }: { room: RoomState; me: Player; busy: boolean; onPick: (seat: number) => void }) {
   const holder = room.players.find((p) => p.hasRing && p.alive);
   if (holder?.id !== me.id) {
     return (
-      <Waiting>
-        ザクロの指輪を持つ {holder ? `${holder.seat}番 ${holder.name}` : "?"} が、このセットのスタートプレイヤーを指名しています…
-      </Waiting>
+      <div className="flex flex-col items-center gap-4">
+        <ItemArt kind="ring" className="h-24 w-24 animate-pulse" />
+        <Headline sub="指名された幹部から継承順位の順に袋が回ります。">
+          {holder ? `${holder.seat}番 ${holder.name}` : "?"} がスタートを指名中…
+        </Headline>
+      </div>
     );
   }
   const alive = room.players.filter((p) => p.alive).sort((a, b) => a.seat - b.seat);
   return (
-    <div className="space-y-3">
-      <p className="flex items-center gap-2 font-semibold">
-        <ItemIcon kind="ring" /> 指輪の持ち主として、第{room.set}セットのスタートプレイヤーを指名してください
-      </p>
-      <p className="text-sm text-white/50">指名した幹部から継承順位の順に袋が回ります。袋の中身はこの後に公開されます。</p>
-      <SeatButtons
-        players={alive}
-        busy={busy}
-        onPick={onPick}
-        label={(p) => `${p.seat}番 ${p.name}${p.id === me.id ? "(自分)" : ""}`}
-      />
+    <div className="flex flex-col items-center gap-4">
+      <ItemArt kind="ring" className="h-20 w-20" />
+      <Headline sub="袋の中身は指名の後に公開されます。自分を指名してもかまいません。">
+        第{room.set}セットのスタートを指名してください
+      </Headline>
+      <SeatGrid players={alive} busy={busy} onPick={onPick} sub={(p) => (p.id === me.id ? "自分" : ROLE_BY_ID[p.role!].name)} />
     </div>
   );
 }
 
-function EconomyPanel({
+function EconomyStage({
   room,
   me,
   actor,
@@ -251,6 +290,7 @@ function EconomyPanel({
   const maxTakes = canExchange ? base + 1 : Math.min(base, room.bag.length);
   const exchanging = takes.length === base + 1;
   const valid = exchanging ? !!returnId : takes.length === Math.min(base, room.bag.length);
+  const bag = sortItems(room.bag);
 
   function toggleTake(id: string) {
     setTakes((prev) => {
@@ -260,130 +300,124 @@ function EconomyPanel({
     });
   }
 
-  const bag = sortItems(room.bag);
+  const composition = room.composition && (
+    <div className="flex flex-col items-center gap-1.5">
+      <p className="text-xs text-white/40">このセットの袋(開始時)</p>
+      <CompositionRow composition={room.composition} />
+    </div>
+  );
 
-  return (
-    <div className="space-y-4">
-      {room.composition && (
-        <div>
-          <p className="mb-1.5 text-xs tracking-wider text-white/40">このセットの袋(開始時)</p>
-          <CompositionRow composition={room.composition} />
-        </div>
-      )}
-      <TurnOrder room={room} actorId={actor?.id} />
-
-      {!myTurn && (
-        <>
-          <Waiting>{actor ? `${actor.seat}番 ${actor.name} が袋を改めています…` : "…"}</Waiting>
-          {seesAll && room.bagVisible && (
-            <div>
-              <p className="mb-1.5 text-xs text-white/40">(観戦)現在の袋の中身</p>
-              <div className="flex flex-wrap gap-2">
-                {bag.map((it) => (
-                  <ItemChip key={it.id} item={it} />
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {myTurn && (
-        <div className="space-y-4 rounded-lg border border-zakuro/40 bg-black/30 p-4">
-          <p className="font-mincho text-lg font-bold">袋があなたの手に渡った</p>
-          <p className="text-sm text-white/60">
-            {exchangeAllowed(room.set)
-              ? `${base}個取ってください。${base + 1}個取る場合は、手番の前から持っていた物を1個袋に戻します。`
-              : `${base}個取ってください。`}
-          </p>
-          <div>
-            <p className="mb-1.5 text-xs tracking-wider text-white/40">袋の中身(あなたにだけ見えています)</p>
-            <div className="flex flex-wrap gap-2">
+  if (!myTurn) {
+    const myPos = room.order.indexOf(me.id);
+    const remaining = myPos - room.turnIndex;
+    return (
+      <div className="flex flex-col items-center gap-4">
+        <BagArt className="h-28 w-28 animate-pulse" />
+        <Headline
+          sub={
+            remaining > 0
+              ? `あなたの番まであと${remaining}人`
+              : myPos >= 0 && myPos < room.turnIndex
+                ? "あなたはこのセットの袋を確認済みです"
+                : undefined
+          }
+        >
+          {actor ? `${actor.seat}番 ${actor.name}` : "…"} が袋を確認中…
+        </Headline>
+        {seesAll && room.bagVisible && (
+          <div className="flex flex-col items-center gap-1.5">
+            <p className="text-xs text-white/40">(観戦)現在の袋の中身</p>
+            <div className="flex flex-wrap justify-center gap-1">
               {bag.map((it) => (
-                <ItemChip key={it.id} item={it} selected={takes.includes(it.id)} onClick={() => toggleTake(it.id)} />
+                <ItemChip key={it.id} item={it} />
               ))}
             </div>
           </div>
+        )}
+        {composition}
+      </div>
+    );
+  }
 
-          {canExchange && (
-            <div className={exchanging ? "" : "opacity-50"}>
-              <p className="mb-1.5 text-xs tracking-wider text-white/40">
-                袋に戻す物{exchanging ? "を1つ選んでください" : `(${base + 1}個取る場合のみ)`}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {sortItems(me.items).map((it) => (
-                  <ItemChip
-                    key={it.id}
-                    item={it}
-                    selected={returnId === it.id}
-                    onClick={exchanging ? () => setReturnId(returnId === it.id ? null : it.id) : undefined}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+  return (
+    <div className="flex flex-col items-center gap-5">
+      <Headline
+        sub={
+          exchangeAllowed(room.set)
+            ? `${base}個取ってください。${base + 1}個取る場合は、手番の前から持っていた物を1個袋に戻します。`
+            : `${base}個取ってください。`
+        }
+      >
+        袋があなたの手に渡った
+      </Headline>
+      <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+        {bag.map((it) => (
+          <ItemCard key={it.id} item={it} selected={takes.includes(it.id)} onClick={() => toggleTake(it.id)} />
+        ))}
+      </div>
 
-          <button
-            disabled={!valid || busy}
-            onClick={() => onSubmit(takes, exchanging ? returnId : null)}
-            className="rounded-full bg-zakuro px-6 py-2.5 font-bold text-white hover:bg-zakuro-light disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {exchanging ? `${base + 1}個取って1個戻す` : `${takes.length}個取って次へ渡す`}
-          </button>
+      {exchanging && (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-black/30 p-3">
+          <p className="text-sm text-bone">袋に戻す物を1つ選んでください</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {sortItems(me.items).map((it) => (
+              <ItemCard
+                key={it.id}
+                item={it}
+                size="md"
+                selected={returnId === it.id}
+                onClick={() => setReturnId(returnId === it.id ? null : it.id)}
+              />
+            ))}
+          </div>
         </div>
       )}
+
+      <PrimaryButton disabled={!valid || busy} onClick={() => onSubmit(takes, exchanging ? returnId : null)}>
+        {exchanging ? `${base + 1}個取って1個戻す` : `${takes.length}/${Math.min(base, room.bag.length)}個 取って次へ渡す`}
+      </PrimaryButton>
+      {composition}
     </div>
   );
 }
 
-function IntelPanel({ room, me, busy, onPick }: { room: RoomState; me: Player; busy: boolean; onPick: (seat: number | null) => void }) {
+function IntelStage({ room, me, busy, onPick }: { room: RoomState; me: Player; busy: boolean; onPick: (seat: number | null) => void }) {
   const pending = room.intelPending.includes(me.id);
-  const waitingFor = room.players.filter((p) => room.intelPending.includes(p.id));
   if (!pending) {
+    const names = room.players
+      .filter((p) => room.intelPending.includes(p.id))
+      .map((p) => `${p.seat}番 ${p.name}`)
+      .join("、");
     return (
-      <Waiting>
-        戦闘の前に、{waitingFor.map((p) => `${p.seat}番 ${p.name}(${ROLE_BY_ID[p.role!].name})`).join("、")} が裏で動いています…
-      </Waiting>
+      <div className="flex flex-col items-center gap-3">
+        <Headline sub="戦闘の前に、情報を扱う幹部が裏で動いています。">{names} が動いている…</Headline>
+      </div>
     );
   }
   const role = ROLE_BY_ID[me.role!];
   const others = room.players.filter((p) => p.id !== me.id).sort((a, b) => a.seat - b.seat);
+  if (me.intelUsed) {
+    return (
+      <div className="flex flex-col items-center gap-4">
+        <Headline sub="能力はすでに使っています。(他の幹部には使ったかどうか分かりません)">{role.name}の仕事</Headline>
+        <SecondaryButton disabled={busy} onClick={() => onPick(null)}>
+          戦闘へ進む
+        </SecondaryButton>
+      </div>
+    );
+  }
   return (
-    <div className="space-y-3">
-      <p className="font-mincho text-lg font-bold">{role.name}の仕事</p>
-      {me.intelUsed ? (
-        <>
-          <p className="text-sm text-white/60">能力はすでに使っています。(他の幹部には使ったかどうか分かりません)</p>
-          <button
-            disabled={busy}
-            onClick={() => onPick(null)}
-            className="rounded-full border border-white/20 px-5 py-2 hover:bg-white/10 disabled:opacity-40"
-          >
-            戦闘へ進む
-          </button>
-        </>
-      ) : (
-        <>
-          <p className="text-sm text-white/60">{role.description} 使うなら調べる幹部を選んでください。</p>
-          <SeatButtons players={others} busy={busy} onPick={onPick} label={(p) => `${p.seat}番 ${p.name}${p.alive ? "" : "(死亡)"}`} />
-          <button
-            disabled={busy}
-            onClick={() => onPick(null)}
-            className="rounded-full border border-white/20 px-5 py-2 hover:bg-white/10 disabled:opacity-40"
-          >
-            今回は使わない
-          </button>
-        </>
-      )}
+    <div className="flex flex-col items-center gap-4">
+      <Headline sub={`${role.description} 使うなら調べる幹部を選んでください。`}>{role.name}の仕事</Headline>
+      <SeatGrid players={others} busy={busy} onPick={onPick} sub={(p) => (p.alive ? ROLE_BY_ID[p.role!].name : "死亡")} />
+      <SecondaryButton disabled={busy} onClick={() => onPick(null)}>
+        今回は使わない
+      </SecondaryButton>
     </div>
   );
 }
 
-function hasUsable(me: Player, kind: "gun" | "bullet"): boolean {
-  return me.items.some((it) => it.kind === kind && !it.fake);
-}
-
-function CombatPanel({
+function CombatStage({
   room,
   me,
   actor,
@@ -397,133 +431,119 @@ function CombatPanel({
   onShoot: (seat: number | null) => void;
 }) {
   const myTurn = actor?.id === me.id;
-  const armed = hasUsable(me, "gun") && hasUsable(me, "bullet");
+  const armed = me.items.some((it) => it.kind === "gun" && !it.fake) && me.items.some((it) => it.kind === "bullet" && !it.fake);
   const targets = room.players.filter((p) => p.alive && p.id !== me.id).sort((a, b) => a.seat - b.seat);
   const lastShot = [...room.log].reverse().find((e) => e.set === room.set && (e.type === "shot" || e.type === "pass"));
+  const last = lastShot && (
+    <p className="rounded-lg bg-black/30 px-3 py-1.5 text-center text-sm text-white/75">直前: {eventText(room, lastShot)}</p>
+  );
 
+  if (!myTurn) {
+    return (
+      <div className="flex flex-col items-center gap-4">
+        <ItemArt kind="gun" className="h-24 w-24 animate-pulse" />
+        <Headline>{actor ? `${actor.seat}番 ${actor.name}` : "…"} が引き金に指をかけている…</Headline>
+        {last}
+      </div>
+    );
+  }
   return (
-    <div className="space-y-4">
-      <TurnOrder room={room} actorId={actor?.id} />
-      {lastShot && <p className="text-sm text-white/70">直前: {eventText(room, lastShot)}</p>}
-      {!myTurn && <Waiting>{actor ? `${actor.seat}番 ${actor.name} が引き金に指をかけている…` : "…"}</Waiting>}
-      {myTurn && (
-        <div className="space-y-3 rounded-lg border border-zakuro/40 bg-black/30 p-4">
-          <p className="font-mincho text-lg font-bold">あなたの番: 撃つか、見逃すか</p>
-          {armed ? (
-            <>
-              <p className="text-sm text-white/60">弾丸を1発使って誰かを撃てます。(撃てるのはこのセットで1回だけ)</p>
-              <SeatButtons players={targets} busy={busy} onPick={onShoot} danger label={(p) => `${p.seat}番 ${p.name} を撃つ`} />
-            </>
-          ) : (
-            <p className="text-sm text-white/60">銃と弾丸が揃っていないため撃てません。</p>
-          )}
-          <button
-            disabled={busy}
-            onClick={() => onShoot(null)}
-            className="rounded-full border border-white/20 px-5 py-2 hover:bg-white/10 disabled:opacity-40"
-          >
-            撃たない
-          </button>
-        </div>
-      )}
+    <div className="flex flex-col items-center gap-4">
+      <Headline sub={armed ? "弾丸を1発使って誰かを撃てます(このセットで1回だけ)。" : "銃と弾丸が揃っていないため撃てません。"}>
+        あなたの番: 撃つか、見逃すか
+      </Headline>
+      {last}
+      {armed && <SeatGrid players={targets} busy={busy} onPick={onShoot} danger />}
+      <SecondaryButton disabled={busy} onClick={() => onShoot(null)}>
+        撃たない
+      </SecondaryButton>
     </div>
   );
 }
 
-function MyDossier({ room, me }: { room: RoomState; me: Player }) {
-  const role = me.role ? ROLE_BY_ID[me.role] : null;
-  const notesRef = useRef<HTMLUListElement>(null);
-  useEffect(() => {
-    notesRef.current?.scrollTo({ top: notesRef.current.scrollHeight });
-  }, [me.notes.length]);
+// ---------------------------------------------------------------------------
+// Bottom: what you hold
 
+function HandCard({ me }: { me: Player }) {
   return (
-    <section className="grid gap-4 rounded-xl border border-white/10 bg-panel/80 p-4 sm:grid-cols-2 sm:p-5">
-      <div className="space-y-3">
-        <div>
-          <p className="text-xs tracking-wider text-white/40">あなた</p>
-          <p className="font-mincho text-lg font-bold">
-            継承順位 {me.seat}番・{role?.name}
-            {!me.alive && <span className="ml-2 text-zakuro-light">(死亡)</span>}
-          </p>
-          <p className="text-sm text-white/60">{role?.description}</p>
+    <section className="rounded-2xl border border-white/10 bg-panel/80 p-4">
+      <p className="mb-2 text-xs text-white/45">あなたの所持品(他の幹部には見えません)</p>
+      {me.items.length ? (
+        <div className="flex flex-wrap gap-2">
+          {sortItems(me.items).map((it) => (
+            <ItemCard key={it.id} item={it} size="md" />
+          ))}
         </div>
-        {me.bonus && (
-          <div className="rounded-lg border border-brass/30 bg-brass/5 p-3">
-            <p className="text-xs tracking-wider text-brass/80">秘密ボーナス(あなただけが知っている)</p>
-            <p className="font-bold">《{BONUS_BY_ID[me.bonus.id].name}》</p>
-            <p className="text-sm text-white/70">{describeBonus(me.bonus)} 達成で宝石+1。</p>
-          </div>
-        )}
-      </div>
-      <div className="space-y-3">
-        <div>
-          <p className="mb-1.5 text-xs tracking-wider text-white/40">所持品(他の幹部には見えません)</p>
-          {me.items.length ? (
-            <div className="flex flex-wrap gap-2">
-              {sortItems(me.items).map((it) => (
-                <ItemChip key={it.id} item={it} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-white/40">なし</p>
-          )}
+      ) : (
+        <p className="py-3 text-sm text-white/35">何も持っていない</p>
+      )}
+      {me.knownFakeIds.length > 0 && me.alive && (
+        <p className="mt-2 text-xs text-white/40">「偽」印は、あなたが偽物だと知っている物です。</p>
+      )}
+      {me.notes.length > 0 && (
+        <div className="mt-3 border-t border-white/5 pt-2">
+          <p className="mb-1 text-xs text-white/45">あなただけが知っていること</p>
+          <ul className="space-y-0.5 text-sm text-white/75">
+            {me.notes.map((n, i) => (
+              <li key={i}>{n}</li>
+            ))}
+          </ul>
         </div>
-        {me.notes.length > 0 && (
-          <div>
-            <p className="mb-1.5 text-xs tracking-wider text-white/40">あなただけが知っていること</p>
-            <ul ref={notesRef} className="max-h-36 space-y-1 overflow-y-auto text-sm text-white/75">
-              {me.notes.map((n, i) => (
-                <li key={i}>{n}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-      {room.phase !== "gameover" && me.alive && me.knownFakeIds.length > 0 && (
-        <p className="text-xs text-white/40 sm:col-span-2">「偽」印は、あなたが偽物だと知っている物です。</p>
       )}
     </section>
   );
 }
 
-function PlayerList({ room, me, actorId, seesAll }: { room: RoomState; me: Player; actorId?: string; seesAll: boolean }) {
+// ---------------------------------------------------------------------------
+// Right: everyone else
+
+function statusFor(room: RoomState, p: Player, actorId?: string): string | null {
+  if (!p.alive) return "死亡";
+  if (!p.connected) return "切断中";
+  if (room.phase === "intel" && room.intelPending.includes(p.id)) return "裏で動いている";
+  if (p.id !== actorId) return null;
+  if (room.phase === "designate") return "スタートを指名中";
+  if (room.phase === "economy") return "袋を確認中";
+  if (room.phase === "combat") return "狙いを定めている";
+  return null;
+}
+
+function PlayerCards({ room, me, actorId, seesAll }: { room: RoomState; me: Player; actorId?: string; seesAll: boolean }) {
   const players = room.players.slice().sort((a, b) => a.seat - b.seat);
-  const actingIds = room.phase === "intel" ? room.intelPending : actorId ? [actorId] : [];
+  const showOrder = room.phase === "economy" || room.phase === "combat";
   return (
-    <section className="rounded-xl border border-white/10 bg-panel/80 p-4">
-      <h2 className="mb-3 font-mincho font-bold">幹部たち(継承順位順)</h2>
-      <ul className="space-y-2">
-        {players.map((p) => {
-          const role = p.role ? ROLE_BY_ID[p.role] : null;
-          const acting = actingIds.includes(p.id);
-          const showSecrets = seesAll && p.id !== me.id;
-          return (
-            <li
-              key={p.id}
-              className={`rounded-lg border px-3 py-2 ${acting ? "border-zakuro bg-zakuro/10" : "border-white/5 bg-white/[0.03]"} ${
-                p.alive ? "" : "opacity-60"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <PlayerTag player={p} showSeat />
-                <span className="flex shrink-0 items-center gap-1 text-xs">
-                  {p.hasRing && (
-                    <span title="ザクロの指輪" className="inline-flex items-center">
-                      <ItemIcon kind="ring" className="h-5 w-5" />
-                    </span>
-                  )}
-                  {!p.alive && <span className="text-zakuro-light">死亡</span>}
-                  {!p.connected && <span className="text-white/40">切断</span>}
-                  {p.id === me.id && <span className="text-white/40">あなた</span>}
-                </span>
+    <section className="flex flex-col gap-1.5">
+      <h2 className="px-1 font-mincho text-sm font-bold text-white/70">幹部たち</h2>
+      {players.map((p) => {
+        const role = p.role ? ROLE_BY_ID[p.role] : null;
+        const status = statusFor(room, p, actorId);
+        const acting = p.id === actorId || (room.phase === "intel" && room.intelPending.includes(p.id));
+        const orderIdx = room.order.indexOf(p.id);
+        const done = showOrder && orderIdx >= 0 && orderIdx < room.turnIndex;
+        return (
+          <div
+            key={p.id}
+            className={`flex gap-2.5 rounded-xl border p-2.5 ${
+              acting ? "border-zakuro bg-zakuro/15" : p.id === me.id ? "border-white/20 bg-white/[0.05]" : "border-white/5 bg-panel/80"
+            } ${p.alive ? "" : "opacity-45"}`}
+          >
+            <span className="w-7 shrink-0 text-center font-mincho text-2xl font-black leading-7 text-bone">{p.seat}</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className={`truncate font-semibold ${p.alive ? "" : "line-through"}`}>{p.name}</span>
+                {p.id === me.id && <span className="shrink-0 text-[11px] text-white/40">あなた</span>}
+                {p.hasRing && <ItemArt kind="ring" className="ml-auto h-6 w-6 shrink-0" />}
               </div>
-              {role && (
-                <p className="mt-0.5 text-xs text-white/55">
-                  <b className="text-bone/80">{role.name}</b> — {role.description}
+              <p className="truncate text-xs text-white/55" title={role?.description}>
+                {role?.name}
+                <span className="text-white/35"> — {role?.description}</span>
+              </p>
+              {(status || (showOrder && p.alive && orderIdx >= 0)) && (
+                <p className={`mt-0.5 text-xs ${acting || status === "死亡" ? "text-zakuro-light" : "text-white/40"}`}>
+                  {status ?? (done ? "済" : `手番 ${orderIdx + 1}`)}
                 </p>
               )}
-              {showSecrets && (
+              {seesAll && p.id !== me.id && (
                 <div className="mt-1.5 space-y-1 border-t border-white/5 pt-1.5 text-xs">
                   {p.bonus && (
                     <p className="text-brass/90">
@@ -532,21 +552,17 @@ function PlayerList({ room, me, actorId, seesAll }: { room: RoomState; me: Playe
                   )}
                   <div className="flex flex-wrap gap-1">
                     {sortItems(p.items).map((it) => (
-                      <span key={it.id} className="inline-flex items-center gap-0.5 rounded bg-white/5 px-1">
-                        <ItemIcon kind={it.kind} className="h-3.5 w-3.5" />
-                        {ITEM_LABEL[it.kind]}
-                        {it.fake && <span className="text-white/50">(偽)</span>}
-                      </span>
+                      <ItemChip key={it.id} item={it} />
                     ))}
                     {p.items.length === 0 && <span className="text-white/30">所持品なし</span>}
                   </div>
                 </div>
               )}
-            </li>
-          );
-        })}
-      </ul>
-      {seesAll && room.phase !== "gameover" && <p className="mt-3 text-xs text-white/40">観戦中: 全員の手の内が見えています。</p>}
+            </div>
+          </div>
+        );
+      })}
+      {seesAll && room.phase !== "gameover" && <p className="px-1 text-xs text-white/40">観戦中: 全員の手の内が見えています。</p>}
     </section>
   );
 }
@@ -578,46 +594,57 @@ function eventText(room: RoomState, e: PublicEvent): string {
   }
 }
 
-function EventLog({ room }: { room: RoomState }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: "smooth" });
-  }, [room.log.length]);
+function eventClass(e: PublicEvent): string {
+  if (e.type === "shot") return e.outcome === "killed" ? "font-semibold text-zakuro-light" : "text-bone/90";
+  if (e.type === "ring" || e.type === "designate") return "text-brass";
+  if (e.type === "setStart") return "font-semibold text-bone";
+  return "text-white/50";
+}
+
+// Routine "X が袋を改めた" lines are left out of the short view; the full log keeps them.
+function isNotable(e: PublicEvent): boolean {
+  return e.type !== "bagTurn" && e.type !== "setEnd";
+}
+
+function RecentLog({ room }: { room: RoomState }) {
+  const recent = room.log.filter(isNotable).slice(-4);
   return (
-    <section className="rounded-xl border border-white/10 bg-panel/80 p-4">
-      <h2 className="mb-2 font-mincho font-bold">記録</h2>
-      <div ref={ref} className="max-h-72 space-y-1.5 overflow-y-auto pr-1 text-sm">
-        {room.log.map((e, i) => (
-          <div key={i}>
-            {e.type === "setStart" && (
-              <div className="mb-1 mt-2 space-y-1 border-t border-white/10 pt-2">
-                <p className="font-semibold text-bone">{eventText(room, e)}</p>
-                <CompositionRow composition={e.composition} />
-              </div>
-            )}
-            {e.type !== "setStart" && (
-              <p
-                className={
-                  e.type === "shot"
-                    ? e.outcome === "killed"
-                      ? "font-semibold text-zakuro-light"
-                      : "text-bone/90"
-                    : e.type === "ring" || e.type === "designate"
-                      ? "text-brass"
-                      : "text-white/50"
-                }
-              >
-                {eventText(room, e)}
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
+    <section className="rounded-xl border border-white/10 bg-panel/80 p-3">
+      <h2 className="mb-1.5 font-mincho text-sm font-bold text-white/70">最近の出来事</h2>
+      {recent.length ? (
+        <ul className="space-y-1 text-xs">
+          {recent.map((e, i) => (
+            <li key={i} className={eventClass(e)}>
+              {eventText(room, e)}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-white/35">まだ何も起きていない</p>
+      )}
+      <details className="mt-2">
+        <summary className="cursor-pointer text-xs text-white/45">すべての記録</summary>
+        <ul className="mt-1.5 max-h-64 space-y-1 overflow-y-auto pr-1 text-xs">
+          {room.log.map((e, i) => (
+            <li key={i} className={eventClass(e)}>
+              {eventText(room, e)}
+              {e.type === "setStart" && (
+                <div className="mt-1">
+                  <CompositionRow composition={e.composition} />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </details>
     </section>
   );
 }
 
-function GameOverPanel({ room, me, busy, onPlayAgain }: { room: RoomState; me: Player; busy: boolean; onPlayAgain: () => void }) {
+// ---------------------------------------------------------------------------
+// Game over
+
+function GameOverStage({ room, me, busy, onPlayAgain }: { room: RoomState; me: Player; busy: boolean; onPlayAgain: () => void }) {
   const winner = room.players.find((p) => p.id === room.winnerIds[0]);
   const rows = useMemo(
     () =>
@@ -629,11 +656,10 @@ function GameOverPanel({ room, me, busy, onPlayAgain }: { room: RoomState; me: P
 
   return (
     <div className="space-y-5">
-      <div className="text-center">
+      <div className="flex flex-col items-center text-center">
+        <ItemArt kind="ring" className="mb-2 h-20 w-20" />
         <p className="text-xs tracking-[0.4em] text-zakuro-light/80">NEW BOSS</p>
-        <p className="font-mincho text-3xl font-black">
-          {winner ? `${winner.seat}番 ${winner.name}` : "該当者なし"}
-        </p>
+        <p className="font-mincho text-3xl font-black">{winner ? `${winner.seat}番 ${winner.name}` : "該当者なし"}</p>
         <p className="text-sm text-white/60">
           {room.endedEarly ? "ただ一人生き残り、ボスの座に就いた。" : "がザクロの指輪を継ぐ次のボスとなった。"}
           {winner?.id === me.id && <span className="ml-1 font-bold text-zakuro-light">(あなた)</span>}
@@ -644,11 +670,12 @@ function GameOverPanel({ room, me, busy, onPlayAgain }: { room: RoomState; me: P
         {rows.map(({ p, s }) => (
           <div
             key={p.id}
-            className={`rounded-lg border p-3 ${p.id === winner?.id ? "border-zakuro bg-zakuro/10" : "border-white/10 bg-white/[0.03]"}`}
+            className={`rounded-xl border p-3 ${p.id === winner?.id ? "border-zakuro bg-zakuro/10" : "border-white/10 bg-white/[0.03]"}`}
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="flex items-center gap-2">
-                <PlayerTag player={p} showSeat />
+                <span className="font-mincho text-xl font-black">{p.seat}</span>
+                <span className={p.alive ? "font-semibold" : "font-semibold text-white/40 line-through"}>{p.name}</span>
                 <span className="text-xs text-white/50">{p.role && ROLE_BY_ID[p.role].name}</span>
               </span>
               <span className="text-sm">
@@ -665,19 +692,13 @@ function GameOverPanel({ room, me, busy, onPlayAgain }: { room: RoomState; me: P
             </div>
             {p.bonus && (
               <p className="mt-1 text-xs text-white/60">
-                <span className={s.bonusAchieved ? "text-brass" : "text-white/40"}>
-                  {s.bonusAchieved ? "✓ 達成" : "✗ 未達成"}
-                </span>{" "}
+                <span className={s.bonusAchieved ? "text-brass" : "text-white/40"}>{s.bonusAchieved ? "✓ 達成" : "✗ 未達成"}</span>{" "}
                 《{BONUS_BY_ID[p.bonus.id].name}》{describeBonus(p.bonus)}
               </p>
             )}
-            <div className="mt-1.5 flex flex-wrap gap-1 text-xs">
+            <div className="mt-1.5 flex flex-wrap gap-1">
               {sortItems(p.items).map((it) => (
-                <span key={it.id} className="inline-flex items-center gap-0.5 rounded bg-white/5 px-1">
-                  <ItemIcon kind={it.kind} className="h-3.5 w-3.5" />
-                  {ITEM_LABEL[it.kind]}
-                  {it.fake && <span className="text-zakuro-light">(偽)</span>}
-                </span>
+                <ItemChip key={it.id} item={it} />
               ))}
             </div>
           </div>
@@ -688,13 +709,9 @@ function GameOverPanel({ room, me, busy, onPlayAgain }: { room: RoomState; me: P
 
       <div className="text-center">
         {me.isHost ? (
-          <button
-            disabled={busy}
-            onClick={onPlayAgain}
-            className="rounded-full bg-zakuro px-8 py-3 font-bold text-white hover:bg-zakuro-light disabled:opacity-40"
-          >
+          <PrimaryButton disabled={busy} onClick={onPlayAgain}>
             同じメンバーでもう一度
-          </button>
+          </PrimaryButton>
         ) : (
           <p className="text-sm text-white/50">ホストが次のゲームを始めるのを待っています…</p>
         )}
@@ -708,7 +725,7 @@ function History({ room }: { room: RoomState }) {
   const sets = [...new Set(room.history.map((h) => h.set))];
   if (!sets.length) return null;
   return (
-    <details className="rounded-lg border border-white/10 bg-black/20 p-3" open>
+    <details className="rounded-xl border border-white/10 bg-black/20 p-3" open>
       <summary className="cursor-pointer font-mincho font-bold">答え合わせ: 袋の中で何が起きていたか</summary>
       <div className="mt-2 space-y-3">
         {sets.map((set) => (
@@ -726,20 +743,12 @@ function History({ room }: { room: RoomState }) {
                       </span>
                       <span className="text-white/40">取った:</span>
                       {h.took.map((it) => (
-                        <span key={it.id} className="inline-flex items-center gap-0.5">
-                          <ItemIcon kind={it.kind} className="h-3.5 w-3.5" />
-                          {ITEM_LABEL[it.kind]}
-                          {it.fake && <span className="text-zakuro-light">(偽)</span>}
-                        </span>
+                        <ItemChip key={it.id} item={it} />
                       ))}
                       {h.returned && (
                         <>
                           <span className="ml-2 text-white/40">戻した:</span>
-                          <span className="inline-flex items-center gap-0.5">
-                            <ItemIcon kind={h.returned.kind} className="h-3.5 w-3.5" />
-                            {ITEM_LABEL[h.returned.kind]}
-                            {h.returned.fake && <span className="text-zakuro-light">(偽)</span>}
-                          </span>
+                          <ItemChip item={h.returned} />
                         </>
                       )}
                     </li>
