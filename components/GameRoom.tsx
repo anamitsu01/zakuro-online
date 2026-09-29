@@ -8,6 +8,7 @@ import type { RoomSettings, RoomState } from "@/lib/types";
 import Lobby from "./Lobby";
 import Board from "./Board";
 import ConfirmDialog from "./ConfirmDialog";
+import { RulesContent } from "./RulesPanel";
 
 type ConnState = "connecting" | "needs-name" | "in-room" | "not-found";
 
@@ -18,6 +19,7 @@ export default function GameRoom({ code }: { code: string }) {
   const [state, setState] = useState<ConnState>("connecting");
   const [joinError, setJoinError] = useState<string | null>(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showRules, setShowRules] = useState(false);
 
   useEffect(() => {
     const socket = getSocket();
@@ -125,12 +127,20 @@ export default function GameRoom({ code }: { code: string }) {
         <span className="font-mincho text-lg font-bold tracking-widest text-bone/80">
           ザクロの<span className="text-zakuro">継承</span>
         </span>
-        <button
-          onClick={() => setShowLeaveConfirm(true)}
-          className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white"
-        >
-          退出する
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowRules(true)}
+            className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white"
+          >
+            ルール
+          </button>
+          <button
+            onClick={() => setShowLeaveConfirm(true)}
+            className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white"
+          >
+            退出する
+          </button>
+        </div>
       </div>
 
       {room.phase === "lobby" ? (
@@ -142,6 +152,31 @@ export default function GameRoom({ code }: { code: string }) {
         />
       ) : (
         <Board room={room} viewerId={playerId} act={act} />
+      )}
+
+      {showRules && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/75 px-4 py-8"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowRules(false)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl border border-white/10 bg-panel p-5 text-sm leading-relaxed sm:p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-mincho text-xl font-bold text-bone">ルール</h2>
+              <button
+                onClick={() => setShowRules(false)}
+                className="rounded-full border border-white/15 px-3 py-1 text-white/70 hover:bg-white/10"
+              >
+                閉じる
+              </button>
+            </div>
+            <RulesContent />
+          </div>
+        </div>
       )}
 
       {showLeaveConfirm && (
