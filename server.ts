@@ -8,6 +8,7 @@ import {
   GameError,
   hostSkip,
   markConnection,
+  markReady,
   playAgain,
   removePlayer,
   sanitizeForPlayer,
@@ -137,6 +138,10 @@ app.prepare().then(() => {
 
     socket.on("room:settings", ({ code, settings }, cb) => {
       withRoom(code, (room) => updateSettings(room, socket.data.playerId ?? socket.id, settings), cb);
+    });
+
+    socket.on("game:ready", ({ code }, cb) => {
+      withRoom(code, (room) => markReady(room, socket.data.playerId ?? socket.id), cb);
     });
 
     socket.on("game:designate", ({ code, seat }, cb) => {

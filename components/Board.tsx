@@ -15,6 +15,7 @@ export type Act = <E extends keyof ClientToServerEvents>(
 
 const PHASE_LABEL: Record<RoomState["phase"], string> = {
   lobby: "待機中",
+  briefing: "素性の確認",
   designate: "スタート指名",
   economy: "経済フェーズ",
   intel: "内偵",
@@ -61,6 +62,19 @@ export default function Board({ room, viewerId, act }: { room: RoomState; viewer
       : actor && !actor.connected
         ? actor
         : undefined;
+
+  if (room.phase === "briefing") {
+    return (
+      <Briefing
+        room={room}
+        me={me}
+        busy={busy}
+        error={error}
+        onReady={() => run(act("game:ready", {}))}
+        onHostSkip={() => run(act("game:hostSkip", {}))}
+      />
+    );
+  }
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
@@ -117,6 +131,115 @@ export default function Board({ room, viewerId, act }: { room: RoomState; viewer
         <RecentLog room={room} />
         <RulesPanel />
       </aside>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Before set 1: everyone reads who they are, then presses start
+
+function Briefing({
+  room,
+  me,
+  busy,
+  error,
+  onReady,
+  onHostSkip,
+}: {
+  room: RoomState;
+  me: Player;
+  busy: boolean;
+  error: string | null;
+  onReady: () => void;
+  onHostSkip: () => void;
+}) {
+  const role = me.role ? ROLE_BY_ID[me.role] : null;
+  const bonus = me.bonus ? BONUS_BY_ID[me.bonus.id] : null;
+  const ready = room.readyIds.includes(me.id);
+  const waiting = room.players.filter((p) => !room.readyIds.includes(p.id)).sort((a, b) => a.seat - b.seat);
+  const stuck = waiting.some((p) => !p.connected);
+  const others = room.players.filter((p) => p.id !== me.id).sort((a, b) => a.seat - b.seat);
+
+  return (
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+      <div className="text-center">
+        <p className="text-xs tracking-[0.4em] text-zakuro-light/80">THE SUCCESSION</p>
+        <h1 className="font-mincho text-2xl font-black sm:text-3xl">あなたの素性</h1>
+        <p className="mt-1 text-sm text-white/55">役職は全員に公開、秘密ボーナスはあなただけが知っています。</p>
+      </div>
+
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-[9rem_minmax(0,1fr)]">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-panel/90 p-4">
+          <span className="text-xs text-white/45">継承順位</span>
+          <span className="font-mincho text-6xl font-black leading-tight text-bone">{me.seat}</span>
+          <span className="text-center text-[11px] leading-snug text-white/45">番号が小さいほど同点のときに有利</span>
+        </div>
+        <div className="flex gap-4 rounded-2xl border border-white/10 bg-panel/90 p-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-white/45">役職(全員に公開)</p>
+            <p className="font-mincho text-2xl font-bold text-bone">{role?.name}</p>
+            <p className="text-xs text-white/45">シノギ: {role?.shinogi}</p>
+            <p className="mt-2 text-sm text-white/75">{role?.description}</p>
+          </div>
+          {me.items.length > 0 && (
+            <div className="flex shrink-0 flex-col items-center gap-1">
+              <span className="text-[11px] text-white/45">初期所持品</span>
+              {sortItems(me.items).map((it) => (
+                <ItemCard key={it.id} item={it} size="md" />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {bonus && me.bonus && (
+        <div className="rounded-2xl border border-brass/60 bg-brass/[0.07] p-4 text-center">
+          <p className="text-xs text-brass/90">秘密ボーナス(あなただけが知っている)</p>
+          <p className="font-mincho text-2xl font-bold text-bone">《{bonus.name}》</p>
+          <p className="mt-1 text-sm text-white/80">{describeBonus(me.bonus)}</p>
+          <p className="mt-1 text-xs text-white/50">生きたまま達成すれば、最後に宝石1個分が加算されます。</p>
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-white/10 bg-panel/80 p-4">
+        <p className="mb-2 text-xs text-white/45">他の幹部たち</p>
+        <ul className="grid grid-cols-1 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-2">
+          {others.map((p) => (
+            <li key={p.id} className="flex items-baseline gap-2">
+              <span className="w-5 shrink-0 text-center font-mincho text-lg font-black text-bone">{p.seat}</span>
+              <span className="min-w-0">
+                <span className="font-semibold">{p.name}</span>
+                <span className="text-white/55"> — {ROLE_BY_ID[p.role!].name}</span>
+                <span className="block text-xs text-white/40">{ROLE_BY_ID[p.role!].description}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="flex flex-col items-center gap-2 pb-4">
+        {ready ? (
+          <p className="animate-pulse font-mincho text-lg text-bone">準備完了。他の幹部を待っています…</p>
+        ) : (
+          <PrimaryButton disabled={busy} onClick={onReady}>
+            ゲームを始める
+          </PrimaryButton>
+        )}
+        <p className="text-sm text-white/50">
+          準備完了 {room.readyIds.length}/{room.players.length}人
+          {ready && waiting.length > 0 && <>(待機中: {waiting.map((p) => `${p.seat}番 ${p.name}`).join("、")})</>}
+        </p>
+        {error && <p className="text-sm text-zakuro-light">{error}</p>}
+        {me.isHost && stuck && (
+          <button
+            disabled={busy}
+            onClick={onHostSkip}
+            className="rounded-full border border-white/20 px-3 py-1 text-sm text-white/70 hover:bg-white/10 disabled:opacity-40"
+          >
+            切断中の幹部を準備完了にする
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -9,6 +9,7 @@ export interface ClientToServerEvents {
   "room:rejoin": (payload: { code: string; playerId: string }, cb: (res: SocketResult<{ room: RoomState }>) => void) => void;
   "room:start": (payload: { code: string }, cb: Ack) => void;
   "room:settings": (payload: { code: string; settings: Partial<RoomSettings> }, cb: Ack) => void;
+  "game:ready": (payload: { code: string }, cb: Ack) => void;
   "game:designate": (payload: { code: string; seat: number }, cb: Ack) => void;
   "game:take": (payload: { code: string; takeIds: string[]; returnId: string | null }, cb: Ack) => void;
   "game:intel": (payload: { code: string; targetSeat: number | null }, cb: Ack) => void;

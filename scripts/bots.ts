@@ -40,7 +40,9 @@ function startBot(i: number) {
       if (!res.ok) console.log(`${name}: ${res.error}`);
     };
 
-    if (room.phase === "designate" && actorId === me) {
+    if (room.phase === "briefing" && !room.readyIds.includes(me)) {
+      act(() => socket.emit("game:ready", { code }, done));
+    } else if (room.phase === "designate" && actorId === me) {
       const alive = room.players.filter((p) => p.alive);
       act(() => socket.emit("game:designate", { code, seat: rand(alive).seat }, done));
     } else if (room.phase === "economy" && actorId === me && room.bagVisible) {

@@ -5,6 +5,7 @@ import {
   canShoot,
   createRoom,
   designateStart,
+  markReady,
   generateBag,
   sanitizeForPlayer,
   shoot,
@@ -55,6 +56,11 @@ for (let g = 0; g < games; g++) {
   let r = createRoom("p0", "P0");
   for (let i = 1; i < n; i++) r = addPlayer(r, `p${i}`, `P${i}`);
   r = startGame(r, "p0");
+  assert(r.phase === "briefing", "starts with briefing");
+  for (const p of r.players.slice(0, -1)) r = markReady(r, p.id);
+  assert(r.phase === "briefing", "waits for everyone");
+  r = markReady(r, r.players[r.players.length - 1].id);
+  assert(r.phase !== "briefing", "all ready starts set 1");
   assert(new Set(r.players.map((p) => p.seat)).size === n, "unique seats");
   assert(new Set(r.players.map((p) => p.role)).size === n, "unique roles");
 

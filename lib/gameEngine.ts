@@ -101,6 +101,7 @@ export function createRoom(hostId: string, hostName: string): RoomState {
     finalScores: [],
     endedEarly: false,
     shotSeq: 0,
+    readyIds: [],
     createdAt: Date.now(),
   };
 }
@@ -245,8 +246,11 @@ function dealNewGame(room: RoomState): RoomState {
     finalScores: [],
     endedEarly: false,
     shotSeq: 0,
+    readyIds: [],
+    // Everyone first reads their seat, role and secret bonus, then presses start.
+    phase: "briefing",
   };
-  return beginSet(next, 1);
+  return next;
 }
 
 export function startGame(room: RoomState, requesterId: string): RoomState {
@@ -263,6 +267,16 @@ export function playAgain(room: RoomState, requesterId: string): RoomState {
   if (room.phase !== "gameover") throw new GameError("ゲームはまだ終わっていません");
   if (room.players.length < MIN_PLAYERS) throw new GameError(`${MIN_PLAYERS}人以上で開始できます`);
   return dealNewGame(structuredClone(room));
+}
+
+export function markReady(room: RoomState, playerId: string): RoomState {
+  if (room.phase !== "briefing") throw new GameError("今は準備の場面ではありません");
+  byId(room, playerId);
+  if (room.readyIds.includes(playerId)) return room;
+  const r = structuredClone(room);
+  r.readyIds.push(playerId);
+  if (r.players.every((p) => r.readyIds.includes(p.id))) return beginSet(r, 1);
+  return r;
 }
 
 // ---------------------------------------------------------------------------
@@ -632,6 +646,11 @@ function finishGame(room: RoomState): RoomState {
 export function hostSkip(room: RoomState, requesterId: string): RoomState {
   const requester = room.players.find((p) => p.id === requesterId);
   if (!requester?.isHost) throw new GameError("ホストのみが操作できます");
+  if (room.phase === "briefing") {
+    const stuck = room.players.filter((p) => !p.connected && !room.readyIds.includes(p.id));
+    if (!stuck.length) throw new GameError("切断中のプレイヤーはいません");
+    return stuck.reduce((r, p) => markReady(r, p.id), room);
+  }
   if (room.phase === "intel") {
     const stuck = room.intelPending.find((id) => !byId(room, id).connected);
     if (!stuck) throw new GameError("切断中のプレイヤーはいません");

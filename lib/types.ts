@@ -7,7 +7,7 @@ export interface Item {
   fake: boolean;
 }
 
-export type GamePhase = "lobby" | "designate" | "economy" | "intel" | "combat" | "gameover";
+export type GamePhase = "lobby" | "briefing" | "designate" | "economy" | "intel" | "combat" | "gameover";
 
 export type RoleId =
   | "armsDealer"
@@ -132,6 +132,8 @@ export interface RoomState {
   finalScores: FinalScore[];
   endedEarly: boolean;
   shotSeq: number;
+  /** Players who have read their briefing and pressed start. */
+  readyIds: string[];
   createdAt: number;
 }
 
