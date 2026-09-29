@@ -55,10 +55,11 @@ export default function Board({ room, viewerId, act }: { room: RoomState; viewer
     setErrorState({ key: turnKey, message: err });
   }
 
+  // You are obviously online on your own screen, so never offer to skip yourself.
   const stuckPlayer =
     room.phase === "intel"
-      ? room.players.find((p) => room.intelPending.includes(p.id) && !p.connected)
-      : actor && !actor.connected
+      ? room.players.find((p) => room.intelPending.includes(p.id) && !p.connected && p.id !== me.id)
+      : actor && !actor.connected && actor.id !== me.id
         ? actor
         : undefined;
 
@@ -158,7 +159,7 @@ function Briefing({
   const role = me.role ? ROLE_BY_ID[me.role] : null;
   const bonus = me.bonus ? BONUS_BY_ID[me.bonus.id] : null;
   const waiting = room.players.filter((p) => !room.readyIds.includes(p.id)).sort((a, b) => a.seat - b.seat);
-  const stuck = waiting.some((p) => !p.connected);
+  const stuck = waiting.some((p) => !p.connected && p.id !== me.id);
   const others = room.players.filter((p) => p.id !== me.id).sort((a, b) => a.seat - b.seat);
   const titles = ["継承順位", "役職", "秘密ボーナス"];
 

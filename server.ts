@@ -174,6 +174,12 @@ app.prepare().then(() => {
       const room = getRoom(roomCode);
       if (!room) return;
 
+      // A reconnecting browser opens its new socket (and rejoins) before the
+      // server notices the old one is gone. Only mark the player offline if
+      // no other socket is still attached to them.
+      const stillConnected = (io.sockets.adapter.rooms.get(playerRoomTag(roomCode, playerId))?.size ?? 0) > 0;
+      if (stillConnected) return;
+
       const updated = markConnection(room, playerId, false);
       broadcastRoom(io, updated);
 
