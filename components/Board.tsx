@@ -83,6 +83,9 @@ export default function Board({ room, viewerId, act }: { room: RoomState; viewer
 
         <section className="flex min-h-[20rem] flex-col rounded-2xl border border-zakuro-deep/70 bg-panel/90 p-4 sm:p-6">
           <StageHeader room={room} />
+          {(room.phase === "economy" || room.phase === "intel" || room.phase === "combat") && (
+            <TurnOrderStrip room={room} me={me} actorId={actorId} />
+          )}
           <div className="flex flex-1 flex-col justify-center">
             {room.phase === "designate" && (
               <DesignateStage room={room} me={me} busy={busy} onPick={(seat) => run(act("game:designate", { seat }))} />
@@ -288,6 +291,44 @@ function IdentityCards({ me }: { me: Player }) {
 
 // ---------------------------------------------------------------------------
 // Center: what's happening now
+
+/** The set's turn order by 継承順位, kept right beside the bag so nobody has to scroll for it. */
+function TurnOrderStrip({ room, me, actorId }: { room: RoomState; me: Player; actorId?: string }) {
+  return (
+    <div className="mb-5 flex flex-wrap items-start justify-center gap-y-2">
+      {room.order.map((id, i) => {
+        const p = room.players.find((pl) => pl.id === id)!;
+        const current = id === actorId;
+        const done = room.phase !== "intel" && i < room.turnIndex;
+        const circle = current
+          ? "border-zakuro-light bg-zakuro text-white scale-110"
+          : !p.alive
+            ? "border-white/10 bg-transparent text-white/25 line-through"
+            : done
+              ? "border-white/10 bg-white/[0.03] text-white/35"
+              : p.id === me.id
+                ? "border-bone/60 bg-white/10 text-bone"
+                : "border-white/20 bg-white/5 text-bone";
+        return (
+          <div key={id} className="flex items-start">
+            {i > 0 && <span className="mt-2 px-0.5 text-xs text-white/25 sm:mt-2.5 sm:px-1.5 sm:text-sm">→</span>}
+            <div className="flex w-10 flex-col items-center gap-0.5 sm:w-14">
+              <span
+                className={`flex h-8 w-8 items-center justify-center rounded-full border font-mincho text-lg font-black transition sm:h-10 sm:w-10 sm:text-xl ${circle}`}
+              >
+                {p.seat}
+              </span>
+              <span className={`w-full truncate text-center text-[11px] ${current ? "text-zakuro-light" : "text-white/50"}`}>
+                {p.id === me.id ? "あなた" : p.name}
+              </span>
+              {i === 0 && <span className="text-[10px] text-brass">スタート</span>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function StageHeader({ room }: { room: RoomState }) {
   return (
