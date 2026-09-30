@@ -84,7 +84,19 @@ for (let g = 0; g < games; g++) {
 
       const base = takeCountForSet(r.set);
       const bagIds = r.bag.map((b) => b.id).sort(() => Math.random() - 0.5);
-      if (exchangeAllowed(r.set) && actor.items.length > 0 && r.bag.length > base && Math.random() < 0.5) {
+      const ring = actor.items.find((i) => i.kind === "ring");
+      if (r.ringDueId === actor.id) {
+        assert(ring, "ring holder has the ring", r);
+        let threw = false;
+        try {
+          takeFromBag(r, actor.id, bagIds.slice(0, base), null);
+        } catch {
+          threw = true;
+        }
+        assert(threw, "ring holder cannot keep the ring");
+        r = takeFromBag(r, actor.id, bagIds.slice(0, base + 1), ring.id);
+        assert(!r.players.find((p) => p.id === actor.id)!.hasRing, "ring returned");
+      } else if (exchangeAllowed(r.set) && actor.items.length > 0 && r.bag.length > base && Math.random() < 0.5) {
         r = takeFromBag(r, actor.id, bagIds.slice(0, base + 1), rand(actor.items).id);
       } else {
         // Illegal: taking too many without returning.

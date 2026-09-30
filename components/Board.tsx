@@ -458,11 +458,14 @@ function EconomyStage({
   const base = takeCountForSet(room.set);
   const canExchange = exchangeAllowed(room.set) && me.items.length > 0 && room.bag.length > base;
   const [takes, setTakes] = useState<string[]>([]);
-  const [returnId, setReturnId] = useState<string | null>(null);
+  const [chosenReturnId, setReturnId] = useState<string | null>(null);
+  // Holding the ring since last set: it must go back, so the return slot is fixed to it.
+  const ring = room.ringDueId === me.id ? me.items.find((it) => it.kind === "ring") : undefined;
+  const returnId = ring ? ring.id : chosenReturnId;
 
   const maxTakes = canExchange ? base + 1 : Math.min(base, room.bag.length);
   const exchanging = takes.length === base + 1;
-  const valid = exchanging ? !!returnId : takes.length === Math.min(base, room.bag.length);
+  const valid = exchanging ? !!returnId : !ring && takes.length === Math.min(base, room.bag.length);
   const bag = sortItems(room.bag);
 
   function toggleTake(id: string) {
@@ -516,9 +519,11 @@ function EconomyStage({
     <div className="flex flex-col items-center gap-5">
       <Headline
         sub={
-          exchangeAllowed(room.set)
-            ? `${base}個取ってください。${base + 1}個取る場合は、手番の前から持っていた物を1個袋に戻します。`
-            : `${base}個取ってください。`
+          ring
+            ? `指輪は1セットしか持てません。${base + 1}個取って、指輪を袋に戻してください。`
+            : exchangeAllowed(room.set)
+              ? `${base}個取ってください。${base + 1}個取る場合は、手番の前から持っていた物を1個袋に戻します。`
+              : `${base}個取ってください。`
         }
       >
         袋があなたの手に渡った
@@ -529,7 +534,14 @@ function EconomyStage({
         ))}
       </div>
 
-      {exchanging && (
+      {ring && (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-brass/50 bg-brass/[0.06] p-3">
+          <p className="text-sm text-bone">袋に戻す物(指輪の持ち主は必ず戻す)</p>
+          <ItemCard item={ring} size="md" selected />
+        </div>
+      )}
+
+      {exchanging && !ring && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-black/30 p-3">
           <p className="text-sm text-bone">袋に戻す物を1つ選んでください</p>
           <div className="flex flex-wrap justify-center gap-2">
@@ -547,7 +559,11 @@ function EconomyStage({
       )}
 
       <PrimaryButton disabled={!valid || busy} onClick={() => onSubmit(takes, exchanging ? returnId : null)}>
-        {exchanging ? `${base + 1}個取って1個戻す` : `${takes.length}/${Math.min(base, room.bag.length)}個 取って次へ渡す`}
+        {ring
+          ? `${takes.length}/${base + 1}個 取って指輪を戻す`
+          : exchanging
+            ? `${base + 1}個取って1個戻す`
+            : `${takes.length}/${Math.min(base, room.bag.length)}個 取って次へ渡す`}
       </PrimaryButton>
       {composition}
     </div>

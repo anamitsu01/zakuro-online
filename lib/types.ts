@@ -14,7 +14,6 @@ export type RoleId =
   | "ammoDealer"
   | "jeweler"
   | "bodyguard"
-  | "elder"
   | "forger"
   | "gunsmith"
   | "chemist"
@@ -126,6 +125,8 @@ export interface RoomState {
   shotSeq: number;
   /** Players who have read their briefing and pressed start. */
   readyIds: string[];
+  /** Whoever held the ring when this set began must put it back in the bag on their turn. Public. */
+  ringDueId: string | null;
   createdAt: number;
 }
 

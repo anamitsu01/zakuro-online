@@ -28,7 +28,6 @@ export const ROLES: RoleDef[] = [
   { id: "ammoDealer", name: "弾薬商", shinogi: "弾薬の横流し", type: "asset", description: "弾丸を1発持って開始する。", start: { kind: "bullet", fake: false } },
   { id: "jeweler", name: "宝石商", shinogi: "盗品の売買", type: "asset", description: "宝石を1個持って開始する。", start: { kind: "gem", fake: false } },
   { id: "bodyguard", name: "用心棒", shinogi: "護衛", type: "asset", description: "身代わり人形を1体持って開始する。", start: { kind: "doll", fake: false } },
-  { id: "elder", name: "古参幹部", shinogi: "先代の側近", type: "asset", description: "ザクロの指輪を持って開始する。", start: { kind: "ring", fake: false } },
   { id: "forger", name: "贋作師", shinogi: "宝石詐欺", type: "fake", description: "偽の宝石を1個持って開始する。", start: { kind: "gem", fake: true } },
   { id: "gunsmith", name: "密造屋", shinogi: "密造銃", type: "fake", description: "偽の銃を1丁持って開始する。", start: { kind: "gun", fake: true } },
   { id: "chemist", name: "闇化学者", shinogi: "火薬の細工", type: "fake", description: "偽の弾丸を1発持って開始する。", start: { kind: "bullet", fake: true } },

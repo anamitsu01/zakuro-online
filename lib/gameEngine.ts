@@ -102,6 +102,7 @@ export function createRoom(hostId: string, hostName: string): RoomState {
     endedEarly: false,
     shotSeq: 0,
     readyIds: [],
+    ringDueId: null,
     createdAt: Date.now(),
   };
 }
@@ -247,6 +248,7 @@ function dealNewGame(room: RoomState): RoomState {
     endedEarly: false,
     shotSeq: 0,
     readyIds: [],
+    ringDueId: null,
     // Everyone first reads their seat, role and secret bonus, then presses start.
     phase: "briefing",
   };
@@ -340,6 +342,8 @@ function startEconomy(room: RoomState): RoomState {
   room.order = turnOrder(room, room.startSeat);
   room.turnIndex = 0;
   room.phase = "economy";
+  // The ring can only be kept for one set: its holder must hand it back this set.
+  room.ringDueId = room.players.find((p) => p.hasRing && p.alive)?.id ?? null;
   room.log.push({ type: "setStart", set: room.set, startSeat: room.startSeat, composition });
   return room;
 }
@@ -377,6 +381,11 @@ export function takeFromBag(room: RoomState, playerId: string, takeIds: string[]
   });
 
   let returned: Item | null = null;
+  const ringDue = r.ringDueId === player.id;
+  if (ringDue) {
+    const ring = player.items.find((it) => it.kind === "ring");
+    if (!ring || returnId !== ring.id) throw new GameError("指輪の持ち主は、このセットで指輪を袋に戻さなければなりません");
+  }
   if (returnId) {
     if (!exchangeAllowed(r.set)) throw new GameError("第1セットでは交換できません");
     if (taken.length !== base + 1) throw new GameError(`交換する場合は袋から${base + 1}個取ってください`);
@@ -411,6 +420,7 @@ export function takeFromBag(room: RoomState, playerId: string, takeIds: string[]
   r.history.push(record);
   r.log.push({ type: "bagTurn", set: r.set, seat: player.seat });
   if (tookRing) r.log.push({ type: "ring", set: r.set, seat: player.seat, action: "took" });
+  if (ringDue) r.ringDueId = null;
   if (returnedRing) r.log.push({ type: "ring", set: r.set, seat: player.seat, action: "returned" });
 
   r.turnIndex += 1;
@@ -646,8 +656,10 @@ export function hostSkip(room: RoomState, requesterId: string): RoomState {
   if (actor.connected) throw new GameError("そのプレイヤーは接続中です");
   if (room.phase === "designate") return designateStart(room, actor.id, actor.seat);
   if (room.phase === "economy") {
-    const n = Math.min(takeCountForSet(room.set), room.bag.length);
-    return takeFromBag(room, actor.id, shuffle(room.bag).slice(0, n).map((it) => it.id), null);
+    const base = takeCountForSet(room.set);
+    const ring = room.ringDueId === actor.id ? actor.items.find((it) => it.kind === "ring") : undefined;
+    const n = Math.min(ring ? base + 1 : base, room.bag.length);
+    return takeFromBag(room, actor.id, shuffle(room.bag).slice(0, n).map((it) => it.id), ring?.id ?? null);
   }
   if (room.phase === "combat") return shoot(room, actor.id, null);
   throw new GameError("進められる手番がありません");

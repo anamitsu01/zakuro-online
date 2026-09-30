@@ -48,7 +48,10 @@ function startBot(i: number) {
     } else if (room.phase === "economy" && actorId === me && room.bagVisible) {
       const base = takeCountForSet(room.set);
       const ids = room.bag.map((b) => b.id).sort(() => Math.random() - 0.5);
-      if (exchangeAllowed(room.set) && self.items.length > 0 && ids.length > base && Math.random() < 0.4) {
+      const ring = self.items.find((it) => it.kind === "ring");
+      if (room.ringDueId === me && ring) {
+        act(() => socket.emit("game:take", { code, takeIds: ids.slice(0, base + 1), returnId: ring.id }, done));
+      } else if (exchangeAllowed(room.set) && self.items.length > 0 && ids.length > base && Math.random() < 0.4) {
         act(() => socket.emit("game:take", { code, takeIds: ids.slice(0, base + 1), returnId: rand(self.items).id }, done));
       } else {
         act(() => socket.emit("game:take", { code, takeIds: ids.slice(0, base), returnId: null }, done));
