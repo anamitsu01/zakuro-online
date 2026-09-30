@@ -30,7 +30,6 @@ export type BonusId =
   | "fearless"
   | "collector"
   | "usurper"
-  | "retaliation"
   | "stockpile";
 
 export interface SecretBonus {
@@ -65,8 +64,7 @@ export interface Player {
 
 export interface PlayerStats {
   kills: { victimSeat: number; set: number }[];
-  shots: { targetSeat: number; set: number; seq: number }[];
-  shotBy: { shooterSeat: number; seq: number }[];
+  shots: { targetSeat: number; set: number }[];
 }
 
 export interface ActionRecord {
@@ -122,7 +120,6 @@ export interface RoomState {
   winnerIds: string[];
   finalScores: FinalScore[];
   endedEarly: boolean;
-  shotSeq: number;
   /** Players who have read their briefing and pressed start. */
   readyIds: string[];
   /** Whoever held the ring when this set began must put it back in the bag on their turn. Public. */

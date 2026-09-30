@@ -57,6 +57,10 @@ for (let g = 0; g < games; g++) {
   for (let i = 1; i < n; i++) r = addPlayer(r, `p${i}`, `P${i}`);
   r = startGame(r, "p0");
   assert(r.phase === "briefing", "starts with briefing");
+  for (const p of r.players) {
+    if (p.bonus?.id === "revenge") assert(p.bonus.targetSeat === (p.seat === 1 ? 2 : 1), "revenge targets 1番 (or 2番 for 1番)");
+    if (p.bonus?.id === "usurper") assert(p.seat !== 1, "no 下剋上 for 1番");
+  }
   for (const p of r.players.slice(0, -1)) r = markReady(r, p.id);
   assert(r.phase === "briefing", "waits for everyone");
   r = markReady(r, r.players[r.players.length - 1].id);

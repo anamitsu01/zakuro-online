@@ -58,7 +58,7 @@ function makeRoomCode(): string {
 }
 
 function emptyStats(): PlayerStats {
-  return { kills: [], shots: [], shotBy: [] };
+  return { kills: [], shots: [] };
 }
 
 function newPlayer(id: string, name: string, colorIndex: number, isHost: boolean): Player {
@@ -100,7 +100,6 @@ export function createRoom(hostId: string, hostName: string): RoomState {
     winnerIds: [],
     finalScores: [],
     endedEarly: false,
-    shotSeq: 0,
     readyIds: [],
     ringDueId: null,
     createdAt: Date.now(),
@@ -195,9 +194,8 @@ function assignBonus(player: Player, players: Player[], counts: Map<string, numb
     if (def.id === "usurper" && player.seat === 1) continue;
     let targetSeat: number | undefined;
     if (def.targeted === "enemy") {
-      // Low numbers win ties, so kill targets lean toward them.
-      const n = players.length;
-      targetSeat = weightedPick(others.map((o) => [o.seat, n + 1 - o.seat] as [number, number]));
+      // 復讐 always aims at the heir apparent: 1番, or 2番 when you are 1番 yourself.
+      targetSeat = player.seat === 1 ? 2 : 1;
     } else if (def.targeted === "ally") {
       targetSeat = pick(others).seat;
     }
@@ -246,7 +244,6 @@ function dealNewGame(room: RoomState): RoomState {
     winnerIds: [],
     finalScores: [],
     endedEarly: false,
-    shotSeq: 0,
     readyIds: [],
     ringDueId: null,
     // Everyone first reads their seat, role and secret bonus, then presses start.
@@ -508,10 +505,7 @@ export function shoot(room: RoomState, playerId: string, targetSeat: number | nu
   if (!target || !target.alive || target.id === shooter.id) throw new GameError("生存している他の幹部を狙ってください");
   if (!canShoot(shooter)) throw new GameError("銃と弾丸の両方が必要です");
 
-  r.shotSeq += 1;
-  const seq = r.shotSeq;
-  shooter.stats.shots.push({ targetSeat: target.seat, set: r.set, seq });
-  target.stats.shotBy.push({ shooterSeat: shooter.seat, seq });
+  shooter.stats.shots.push({ targetSeat: target.seat, set: r.set });
 
   const gun = pick(usable(shooter, "gun"));
   const bullet = pick(usable(shooter, "bullet"));
@@ -601,8 +595,6 @@ export function bonusAchieved(room: RoomState, p: Player): boolean {
       return (["gem", "gun", "bullet", "doll"] as ItemKind[]).every((k) => countKind(p, k) > 0);
     case "usurper":
       return s.kills.some((k) => k.victimSeat < p.seat);
-    case "retaliation":
-      return s.shotBy.some((by) => s.shots.some((sh) => sh.targetSeat === by.shooterSeat && sh.seq > by.seq));
     case "stockpile":
       return countKind(p, "bullet") >= 2;
   }

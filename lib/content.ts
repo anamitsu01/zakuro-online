@@ -47,7 +47,12 @@ export interface BonusDef {
 
 // 秘密ボーナス。達成すると宝石+1。死亡すると無効。役職とは無関係にランダムで配られる。
 export const BONUSES: BonusDef[] = [
-  { id: "revenge", name: "復讐", targeted: "enemy", describe: (t) => `継承順位${t}番を自分の手で殺す。` },
+  {
+    id: "revenge",
+    name: "復讐",
+    targeted: "enemy",
+    describe: (t) => (t ? `継承順位${t}番を自分の手で殺す。` : "継承順位1番(自分が1番なら2番)を自分の手で殺す。"),
+  },
   { id: "pacifist", name: "平和主義", describe: () => "誰も死亡せずにゲームが終わる。" },
   { id: "guardian", name: "守護", targeted: "ally", describe: (t) => `継承順位${t}番が最後まで生き残る。` },
   { id: "assassin", name: "暗殺者", describe: () => "第3セットの戦闘で誰かを殺す。" },
@@ -56,7 +61,6 @@ export const BONUSES: BonusDef[] = [
   { id: "fearless", name: "大胆不敵", describe: () => "ゲーム終了時に身代わり人形を持っていない。" },
   { id: "collector", name: "収集家", describe: () => "ゲーム終了時に宝石・銃・弾丸・身代わり人形をすべて1つ以上持っている。" },
   { id: "usurper", name: "下剋上", describe: () => "自分より継承順位が上(番号が小さい)の誰かを殺す。" },
-  { id: "retaliation", name: "報復", describe: () => "自分を撃った幹部を撃ち返す(結果は問わない)。" },
   { id: "stockpile", name: "備蓄", describe: () => "ゲーム終了時に弾丸を2発以上持っている。" },
 ];
 
