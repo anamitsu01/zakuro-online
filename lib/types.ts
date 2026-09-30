@@ -17,25 +17,21 @@ export type RoleId =
   | "elder"
   | "forger"
   | "gunsmith"
-  | "blankSeller"
+  | "chemist"
   | "puppeteer"
-  | "informant"
-  | "watcher";
+  | "informant";
 
 export type BonusId =
   | "revenge"
   | "pacifist"
-  | "tough"
   | "guardian"
   | "assassin"
   | "quickDraw"
   | "disarmed"
-  | "miser"
   | "fearless"
   | "collector"
   | "usurper"
   | "retaliation"
-  | "chosen"
   | "stockpile";
 
 export interface SecretBonus {
@@ -69,13 +65,9 @@ export interface Player {
 }
 
 export interface PlayerStats {
-  /** Shots aimed at this player that didn't kill them (blocked or misfired). */
-  shotsSurvived: number;
   kills: { victimSeat: number; set: number }[];
   shots: { targetSeat: number; set: number; seq: number }[];
   shotBy: { shooterSeat: number; seq: number }[];
-  returnedSomething: boolean;
-  designatedByOther: boolean;
 }
 
 export interface ActionRecord {

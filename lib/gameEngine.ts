@@ -58,7 +58,7 @@ function makeRoomCode(): string {
 }
 
 function emptyStats(): PlayerStats {
-  return { shotsSurvived: 0, kills: [], shots: [], shotBy: [], returnedSomething: false, designatedByOther: false };
+  return { kills: [], shots: [], shotBy: [] };
 }
 
 function newPlayer(id: string, name: string, colorIndex: number, isHost: boolean): Player {
@@ -352,7 +352,6 @@ export function designateStart(room: RoomState, playerId: string, seat: number):
   const target = bySeat(r, seat);
   if (!target || !target.alive) throw new GameError("生存している幹部を指名してください");
   r.startSeat = seat;
-  if (target.id !== holder.id) target.stats.designatedByOther = true;
   r.log.push({ type: "designate", set: r.set, bySeat: holder.seat, startSeat: seat });
   return startEconomy(r);
 }
@@ -402,7 +401,6 @@ export function takeFromBag(room: RoomState, playerId: string, takeIds: string[]
     player.items = player.items.filter((it) => it.id !== returned!.id);
     r.bag.push(returned);
     r.bag = shuffle(r.bag);
-    player.stats.returnedSomething = true;
   }
 
   const tookRing = taken.some((t) => t.kind === "ring");
@@ -421,7 +419,7 @@ export function takeFromBag(room: RoomState, playerId: string, takeIds: string[]
 }
 
 function isIntelRole(p: Player): boolean {
-  return p.role === "informant" || p.role === "watcher";
+  return p.role === "informant";
 }
 
 function afterEconomy(room: RoomState): RoomState {
@@ -447,13 +445,8 @@ export function applyIntel(room: RoomState, playerId: string, targetSeat: number
     if (!target || target.id === me.id) throw new GameError("自分以外の幹部を指定してください");
     const rec = r.history.find((h) => h.set === r.set && h.playerId === target.id);
     const name = `${target.seat}番 ${target.name}`;
-    if (me.role === "informant") {
-      const kinds = rec ? rec.took.map((t) => ITEM_LABEL[t.kind]).join("・") : "";
-      me.notes.push(`【第${r.set}セット・情報】${name} が袋から取った物: ${kinds || "なし"}`);
-    } else {
-      const kind = rec?.returned ? ITEM_LABEL[rec.returned.kind] : "なし";
-      me.notes.push(`【第${r.set}セット・監視】${name} が袋に戻した物: ${kind}`);
-    }
+    const kinds = rec ? rec.took.map((t) => ITEM_LABEL[t.kind]).join("・") : "";
+    me.notes.push(`【第${r.set}セット・情報】${name} が袋から取った物: ${kinds || "なし"}`);
     me.intelUsed = true;
   }
   r.intelPending = r.intelPending.filter((id) => id !== playerId);
@@ -554,8 +547,6 @@ export function shoot(room: RoomState, playerId: string, targetSeat: number | nu
       r.endedEarly = true;
       return finishGame(r);
     }
-  } else {
-    target.stats.shotsSurvived += 1;
   }
 
   r.turnIndex += 1;
@@ -586,8 +577,6 @@ export function bonusAchieved(room: RoomState, p: Player): boolean {
       return s.kills.some((k) => k.victimSeat === p.bonus!.targetSeat);
     case "pacifist":
       return room.players.every((pl) => pl.alive);
-    case "tough":
-      return s.shotsSurvived >= 2;
     case "guardian":
       return !!bySeat(room, p.bonus.targetSeat!)?.alive;
     case "assassin":
@@ -596,8 +585,6 @@ export function bonusAchieved(room: RoomState, p: Player): boolean {
       return s.shots.some((sh) => sh.set <= 2);
     case "disarmed":
       return countKind(p, "gun") === 0;
-    case "miser":
-      return !s.returnedSomething;
     case "fearless":
       return countKind(p, "doll") === 0;
     case "collector":
@@ -606,8 +593,6 @@ export function bonusAchieved(room: RoomState, p: Player): boolean {
       return s.kills.some((k) => k.victimSeat < p.seat);
     case "retaliation":
       return s.shotBy.some((by) => s.shots.some((sh) => sh.targetSeat === by.shooterSeat && sh.seq > by.seq));
-    case "chosen":
-      return s.designatedByOther;
     case "stockpile":
       return countKind(p, "bullet") >= 2;
   }

@@ -31,10 +31,9 @@ export const ROLES: RoleDef[] = [
   { id: "elder", name: "古参幹部", shinogi: "先代の側近", type: "asset", description: "ザクロの指輪を持って開始する。", start: { kind: "ring", fake: false } },
   { id: "forger", name: "贋作師", shinogi: "宝石詐欺", type: "fake", description: "偽の宝石を1個持って開始する。", start: { kind: "gem", fake: true } },
   { id: "gunsmith", name: "密造屋", shinogi: "密造銃", type: "fake", description: "偽の銃を1丁持って開始する。", start: { kind: "gun", fake: true } },
-  { id: "blankSeller", name: "空砲売り", shinogi: "粗悪弾", type: "fake", description: "偽の弾丸を1発持って開始する。", start: { kind: "bullet", fake: true } },
+  { id: "chemist", name: "闇化学者", shinogi: "火薬の細工", type: "fake", description: "偽の弾丸を1発持って開始する。", start: { kind: "bullet", fake: true } },
   { id: "puppeteer", name: "人形師", shinogi: "替え玉", type: "fake", description: "偽の身代わり人形を1体持って開始する。", start: { kind: "doll", fake: true } },
   { id: "informant", name: "情報屋", shinogi: "情報売買", type: "intel", description: "ゲーム中1回、戦闘前に指定した幹部がこのセットで袋から取った物を見られる。" },
-  { id: "watcher", name: "監視役", shinogi: "内偵", type: "intel", description: "ゲーム中1回、戦闘前に指定した幹部がこのセットで袋に戻した物を見られる。" },
 ];
 
 export const ROLE_BY_ID: Record<RoleId, RoleDef> = Object.fromEntries(ROLES.map((r) => [r.id, r])) as Record<RoleId, RoleDef>;
@@ -51,17 +50,14 @@ export interface BonusDef {
 export const BONUSES: BonusDef[] = [
   { id: "revenge", name: "復讐", targeted: "enemy", describe: (t) => `継承順位${t}番を自分の手で殺す。` },
   { id: "pacifist", name: "平和主義", describe: () => "誰も死亡せずにゲームが終わる。" },
-  { id: "tough", name: "頑強", describe: () => "2回以上撃たれて生き残る(人形で防いだ・不発も数える)。" },
   { id: "guardian", name: "守護", targeted: "ally", describe: (t) => `継承順位${t}番が最後まで生き残る。` },
   { id: "assassin", name: "暗殺者", describe: () => "第3セットの戦闘で誰かを殺す。" },
   { id: "quickDraw", name: "早撃ち", describe: () => "第1・第2セットのどちらかで誰かを撃つ(結果は問わない)。" },
   { id: "disarmed", name: "武装解除", describe: () => "ゲーム終了時に銃を持っていない。" },
-  { id: "miser", name: "守銭奴", describe: () => "一度も袋に物を戻さない。" },
   { id: "fearless", name: "大胆不敵", describe: () => "ゲーム終了時に身代わり人形を持っていない。" },
   { id: "collector", name: "収集家", describe: () => "ゲーム終了時に宝石・銃・弾丸・身代わり人形をすべて1つ以上持っている。" },
   { id: "usurper", name: "下剋上", describe: () => "自分より継承順位が上(番号が小さい)の誰かを殺す。" },
   { id: "retaliation", name: "報復", describe: () => "自分を撃った幹部を撃ち返す(結果は問わない)。" },
-  { id: "chosen", name: "寵愛", describe: () => "他の指輪の持ち主からスタートプレイヤーに指名される。" },
   { id: "stockpile", name: "備蓄", describe: () => "ゲーム終了時に弾丸を2発以上持っている。" },
 ];
 
