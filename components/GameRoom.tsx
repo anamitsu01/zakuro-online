@@ -7,6 +7,7 @@ import type { ClientToServerEvents } from "@/lib/socketEvents";
 import type { RoomSettings, RoomState } from "@/lib/types";
 import Lobby from "./Lobby";
 import Board from "./Board";
+import ShotCutIn from "./ShotCutIn";
 import ConfirmDialog from "./ConfirmDialog";
 import { RulesContent } from "./RulesPanel";
 
@@ -153,6 +154,8 @@ export default function GameRoom({ code }: { code: string }) {
       ) : (
         <Board room={room} viewerId={playerId} act={act} />
       )}
+
+      {room.phase !== "lobby" && <ShotCutIn room={room} viewerId={playerId} />}
 
       {showRules && (
         <div

@@ -30,3 +30,32 @@ body {
 .font-mincho {
   font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif;
 }
+
+/* Shot cut-in: the band slashes in from the left, then the text punches in. */
+@keyframes zk-slash {
+  from {
+    transform: translateX(-110%) rotate(-3deg);
+  }
+  to {
+    transform: translateX(0) rotate(-3deg);
+  }
+}
+@keyframes zk-punch {
+  0% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(0.95);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.zk-cutin {
+  animation: zk-slash 0.28s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+.zk-cutin-text {
+  animation: zk-punch 0.35s 0.15s ease-out both;
+}
